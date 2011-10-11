@@ -17,7 +17,9 @@ using namespace std;
 
 using namespace cv;
 
+#include <sstream>
 #include <iostream>
+#include <fstream>
 #include <stdio.h>
 #include <string.h>
 // OpenKinect libraries
@@ -31,6 +33,7 @@ using namespace cv;
 
 #include<sys/stat.h>
 #include<sys/types.h>
+#include <dirent.h>
 
 // Some definitions for OpenKinect
 #define         FREENECT_FRAME_W   640
@@ -120,44 +123,108 @@ IplImage *GlViewColor(IplImage *depth){
 	return image;
 }
 
+string convertInt(int number)
+{
+    if (number == 0)
+        return "0";
+    string temp="";
+    string returnvalue="";
+    while (number>0)
+    {
+        temp+=number%10+48;
+        number/=10;
+    }
+    for (int i=0;i<temp.length();i++)
+        returnvalue+=temp[temp.length()-i-1];
+    return returnvalue;
+}
 // Save the contours on disk. Current implementation is via xml files on file system. future goal is to implement database abstraction
 void SaveContour(CvSeq* contour[], string objname){
+
+	//code to check that the object name is valid i.e. only alpha letters
+
+
+	// okay, let's save it
 	const char* attrs[] = {"recursive", "1", 0};
-	cout << "the file name will be " << objname << endl;
-	string objname1="./objects/"+objname+"_1.xml";
-	string objname2="./objects/"+objname+"_2.xml";
-	string objname3="./objects/"+objname+"_3.xml";
+
+	ifstream infile;
+	ofstream outfile;
+	string line;
+	string fobjname = "";
+	string num = "";
+	infile.open ("./objects/index", ios::in);
+	outfile.open ("./objects/index", ios::app);
+	int highest = 0;
+
+    while ( getline(infile,line)){
+        istringstream liness( line );
+        getline( liness, fobjname, ',' );
+        getline( liness, num,  ',' );
+        if (fobjname == objname) {
+        	int i = atoi(num.c_str());
+        	if (i > highest) highest = i;
+        }
+    }
+
+	infile.close();
+    outfile << objname << "," << convertInt(highest+1) <<"\n";
+    outfile.close();
+
+	cout << "Creating database entry for Object " << objname << endl;
+	string objname1="./objects/"+objname+"-"+convertInt(highest+1)+"_1.xml";
+	string objname2="./objects/"+objname+"-"+convertInt(highest+1)+"_2.xml";
+	string objname3="./objects/"+objname+"-"+convertInt(highest+1)+"_3.xml";
 	cvSave(objname1.c_str(), contour[0], 0, 0, cvAttrList(attrs, 0));
 	cvSave(objname2.c_str(), contour[1], 0, 0, cvAttrList(attrs, 0));
 	cvSave(objname3.c_str(), contour[2], 0, 0, cvAttrList(attrs, 0));
 }
 
-/*
-void sum_bgr(IplImage* src, IplImage* dst, int thresh){
-	//Alllocate individual image planes
-	IplImage* r = cvCreateImage(cvGetSize(src), IPL_DEPTH_8U, 1);
-	IplImage* g = cvCreateImage(cvGetSize(src), IPL_DEPTH_8U, 1);
-	IplImage* b = cvCreateImage(cvGetSize(src), IPL_DEPTH_8U, 1);
+// returns the saved contour with the best fit. If this is below the threshold, then null is returned.
+CvSeq* FindBestFitContour(CvSeq* seq[]){
+	CvSeq* topcontour = NULL;
+	string line;
+	string fobjname = "";
+	string num = "";
+	ifstream infile;
+	CvSeq *dbcontour[3];
+	dbcontour[0] = 0;
+	dbcontour[1] = 0;
+	dbcontour[2] = 0;
+	int highestscore = 0;
 
-	//Split image onto the color planes
-	cvSplit(src, b, g, r, NULL);
+	infile.open ("./objects/index", ios::in);
+    while (getline(infile,line)){
+        istringstream liness( line );
+        getline( liness, fobjname, ',' );
+        getline( liness, num,  ',' );
+        string c1 = fobjname+"-"+num+"_1.xml";
+        string c2 = fobjname+"-"+num+"_2.xml";;
+        string c3 = fobjname+"-"+num+"_3.xml";;
+        char c1_c[c1.size()];
+        char c2_c[c2.size()];
+        char c3_c[c3.size()];
 
-	//Temporary storage
-	IplImage* s = cvCreateImage(cvGetSize(src), IPL_DEPTH_8U, 1);
+        // Let's start loading these files for comparison. First we have to do a little conversion to char[].
+        cout << "Loading file for " << fobjname << "-" << num << "\n";
+        for (int a=0;a<=c1.size();a++){
+        	c1_c[a]=c1[a];
+		}
+        for (int b=0;b<=c1.size();b++){
+        	c2_c[b]=c2[b];
+		}
+        for (int c=0;c<=c1.size();c++){
+        	c3_c[c]=c3[c];
+		}
 
-	//Add equally weighted rgb values
-	cvAddWeighted(r, 1./3., g, 1./3., 0.0, s);
-	cvAddWeighted(s, 2./3., b, 1./3., 0.0, s);
-
-	//Trunate values above val
-	cvThreshold (s, dst, thresh, 256, CV_THRESH_BINARY);
-
-	cvReleaseImage(&r);
-	cvReleaseImage(&g);
-	cvReleaseImage(&b);
-	cvReleaseImage(&s);
+        // Next we use the cvLoad to load up the contour array.
+        dbcontour[0] = (CvSeq*) cvLoad(c1_c);
+        dbcontour[1] = (CvSeq*) cvLoad(c2_c);
+        dbcontour[2] = (CvSeq*) cvLoad(c3_c);
+        cout << "Computing score for object " << fobjname << "-" << num << "\n";
+    }
+	return topcontour;
 }
-*/
+
 // take an image and store identity as contours at various depths by click of space bar
 int main(int argc, char **argv)
 {
@@ -173,16 +240,17 @@ int main(int argc, char **argv)
 	cvNamedWindow("Depth1");
 	cvNamedWindow("Depth2");
 	cvNamedWindow("Depth3");
-	CvSeq *contour[3];
-	contour[0] = 0;
-	contour[1] = 0;
-	contour[2] = 0;
+	CvSeq *currcontour[3];
+	currcontour[0] = 0;
+	currcontour[1] = 0;
+	currcontour[2] = 0;
+	CvSeq *dbcontour = 0;
 	CvMemStorage *storage1 = NULL;
 	CvMemStorage *storage2 = NULL;
 	CvMemStorage *storage3 = NULL;
 	string objname = "";
 	string delreply = "";
-	
+
 	// if the folder for objects is not created, go ahead and create it
 	struct stat st;
 	if(stat("/tmp",&st) != 0){
@@ -239,7 +307,7 @@ int main(int argc, char **argv)
 			depth2 = cvCreateImage(cvGetSize(depth), depth->depth, 1);
 			depth3 = cvCreateImage(cvGetSize(depth), depth->depth, 1);
 			gray_depth = cvCreateImage(cvGetSize(depth), depth->depth, 1);
-			
+
 			cvCvtColor(depth,gray_depth,CV_BGR2GRAY);
 
 			// 20 inches
@@ -253,21 +321,27 @@ int main(int argc, char **argv)
 			storage2 = cvCreateMemStorage(0);
 			storage3 = cvCreateMemStorage(0);
 
-			cvFindContours(depth1, storage1, &contour[0]);
-			cvFindContours(depth2, storage2, &contour[1]);
-			cvFindContours(depth3, storage3, &contour[2]);
+			cvFindContours(depth1, storage1, &currcontour[0]);
+			cvFindContours(depth2, storage2, &currcontour[1]);
+			cvFindContours(depth3, storage3, &currcontour[2]);
 
 			cvZero(depth1);
 			cvZero(depth2);
 			cvZero(depth3);
 
-			cvDrawContours(depth1, contour[0], cvScalarAll(255), cvScalarAll(255), 100);
-			cvDrawContours(depth2, contour[1], cvScalarAll(255), cvScalarAll(255), 100);
-			cvDrawContours(depth3, contour[2], cvScalarAll(255), cvScalarAll(255), 100);
+			cvDrawContours(depth1, currcontour[0], cvScalarAll(255), cvScalarAll(255), 100);
+			cvDrawContours(depth2, currcontour[1], cvScalarAll(255), cvScalarAll(255), 100);
+			cvDrawContours(depth3, currcontour[2], cvScalarAll(255), cvScalarAll(255), 100);
 
-			cout << "I have no idea what this is. What is this object?" << endl;
-			getline(cin, objname);
-			SaveContour(contour, objname);
+			// try to find that object in the database
+			dbcontour = FindBestFitContour(currcontour);
+
+			// uh oh, we have no idea what that thing is. let's ask and save it
+			if (dbcontour == NULL){
+				cout << "I have no idea what this is. What is this object?" << endl;
+				getline(cin, objname);
+				SaveContour(currcontour, objname);
+			}
 
 			cvShowImage("Depth1", depth1);
 			cvShowImage("Depth2", depth2);
@@ -279,8 +353,8 @@ int main(int argc, char **argv)
 				getline(cin, delreply);
 				// if confirmed, delete everything in the directory and create anew
 				if (delreply == "y") {
-					cout << "gonna delete some shit\n";
 					system("rm -r ./objects");
+					cout << "Objects database has been reset!\n";
 					if(mkdir("./objects",0777)==-1)//creating a directory
 					{
 						cout << "Error while creating objects directory\n";
