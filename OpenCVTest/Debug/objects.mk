@@ -4,4 +4,4 @@
 
 USER_OBJS :=
 
-LIBS := -lopencv_highgui -lfreenect -lopencv_core -lfreenect_sync
+LIBS := -lopencv_highgui -lopencv_legacy -lfreenect -lopencv_core -lfreenect_sync

@@ -46,6 +46,7 @@
 </option>
 <option id="gnu.cpp.link.option.libs.1924092090" name="Libraries (-l)" superClass="gnu.cpp.link.option.libs" valueType="libs">
 <listOptionValue builtIn="false" value="opencv_highgui"/>
+<listOptionValue builtIn="false" value="opencv_legacy"/>
 <listOptionValue builtIn="false" value="freenect"/>
 <listOptionValue builtIn="false" value="opencv_core"/>
 <listOptionValue builtIn="false" value="freenect_sync"/>
