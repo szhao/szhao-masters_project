@@ -241,7 +241,7 @@ string FindBestFitContour(CvSeq* seq[]){
 		}
 
         // Next we use the cvLoad to load up the contour array and begin computing scores and cre
-        // let's create the contour trees for each of these, and then compare them
+        // let's create the contour trees for each of these, and then compalre them
         // find the maximum over the threshold and try to ID based on a likely object
 		// Okay, let's add up a similarity score on each image. if there is only a few coordinates,
 		// don't bother calculating anything for the level.
@@ -375,11 +375,9 @@ int main(int argc, char **argv)
 		cvCvtColor(depth,gray_depth,CV_BGR2GRAY);
 		cvThreshold (gray_depth, gray_depth, 180, 256, CV_THRESH_TOZERO);
 
-		// 20 inches
+		// Take 3 contours at different depths. This is roughly 33 inches from the Kinect
 		cvThreshold (gray_depth, depth1, 180, 256, CV_THRESH_TRUNC);
-		// ~20.5 inches
 		cvThreshold (gray_depth, depth2, 190, 256, CV_THRESH_TRUNC);
-		// ~21.5 inches
 		cvThreshold (gray_depth, depth3, 200, 256, CV_THRESH_TRUNC);
 
 		//Let's find the contours
